@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b1f33">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="./manifest.json">
+<link rel="icon" href="./icon-192.png">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<link rel="stylesheet" href="./styles.css">
+<title>高軟保全一鍵排班</title>
+</head>
+<body>
+<main class="app">
+  <header class="hero">
+    <div class="logo">📅</div>
+    <div>
+      <h1>高雄軟體園區<br>保全一鍵排班</h1>
+      <p>固定班底＋例外只改1人｜直接介接既有月排班表</p>
+    </div>
+  </header>
+
+  <section class="card api-card">
+    <div class="row">
+      <span>排班 API</span>
+      <strong id="apiStatus" class="badge waiting">檢查中</strong>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>① 選擇月份</h2>
+    <div class="two">
+      <div>
+        <label for="year">年份</label>
+        <input id="year" type="number" min="2020" max="2100">
+      </div>
+      <div>
+        <label for="month">月份</label>
+        <select id="month"></select>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="section-head">
+      <div>
+        <div class="eyebrow">平常固定</div>
+        <h2>② 固定班底</h2>
+      </div>
+      <button id="reloadStaffBtn" class="text-btn">重讀人員</button>
+    </div>
+
+    <div class="shift-box early">
+      <label>早班1｜06:00–18:00</label>
+      <select id="early1"></select>
+    </div>
+
+    <div class="shift-box early">
+      <label>早班2｜06:00–18:00</label>
+      <select id="early2"></select>
+    </div>
+
+    <div class="shift-box night">
+      <label>晚班1｜18:00–次日06:00</label>
+      <select id="night1"></select>
+    </div>
+
+    <div class="shift-box mobile">
+      <label>固定機動班｜選填</label>
+      <select id="mobile1"></select>
+    </div>
+
+    <div id="staffMessage"></div>
+  </section>
+
+  <section class="card">
+    <div class="section-head">
+      <div>
+        <div class="eyebrow">只有不同的人才調整</div>
+        <h2>③ 例外替換</h2>
+      </div>
+      <button id="addExceptionBtn" class="text-btn">＋新增</button>
+    </div>
+
+    <div class="notice">
+      例如：9/10 原本固定晚班休假，只要新增「9/10｜晚班1｜S006」即可，其餘整月維持固定班底。<br><br>
+      正式介接版只更新月排班表 A:W，X「換班註記」與 Y「主管備註」會保留。
+    </div>
+
+    <div id="exceptionList" class="exception-list"></div>
+  </section>
+
+  <section class="card">
+    <h2>④ 預覽與一鍵排班</h2>
+
+    <div class="action-grid">
+      <button id="previewBtn" class="btn outline">先預覽</button>
+      <button id="generateBtn" class="btn primary">一鍵產生本月排班</button>
+    </div>
+
+    <div id="generateMessage"></div>
+  </section>
+
+  <section id="previewSection" class="card hidden">
+    <div class="section-head">
+      <h2>排班預覽</h2>
+      <strong id="previewCount" class="badge ok">0天</strong>
+    </div>
+
+    <div id="warningList"></div>
+    <div id="previewList" class="preview-list"></div>
+  </section>
+
+  <section class="card">
+    <div class="section-head">
+      <h2>目前月排班表</h2>
+      <button id="loadCurrentBtn" class="text-btn">讀取</button>
+    </div>
+    <div id="currentList" class="preview-list"></div>
+  </section>
+
+  <footer>高雄軟體園區保全一鍵排班 PWA</footer>
+</main>
+
+<template id="exceptionTemplate">
+  <div class="exception-item">
+    <div class="exception-grid">
+      <div>
+        <label>日期</label>
+        <input class="ex-date" type="date">
+      </div>
+      <div>
+        <label>替換席次</label>
+        <select class="ex-slot">
+          <option value="early1">早班1</option>
+          <option value="early2">早班2</option>
+          <option value="night1">晚班1</option>
+          <option value="mobile1">機動班1</option>
+        </select>
+      </div>
+    </div>
+
+    <label>替換人員</label>
+    <select class="ex-person"></select>
+
+    <button class="remove-ex text-btn" type="button">刪除此例外</button>
+  </div>
+</template>
+
+<script src="./config.js"></script>
+<script src="./app.js"></script>
+</body>
+</html>
