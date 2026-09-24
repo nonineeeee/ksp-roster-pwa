@@ -1,3 +1,3 @@
-// 部署 Apps Script Web App 後，把 /exec 完整網址貼到這裡。
-const ROSTER_API_URL = 'https://script.google.com/macros/s/AKfycbxLwFtMITqLpbX6iAqnklw5kNRtCwbWy3Nirp8ksvvBQIiEvAdCvVLcvWHj80mPcPB8/exec';
+// 將排班專用 Apps Script Web App 的完整 /exec 網址貼在下方。
+const ROSTER4_API_URL = 'PASTE_YOUR_ROSTER4_API_EXEC_URL_HERE';
 const API_TIMEOUT_MS = 25000;

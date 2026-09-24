@@ -1,13 +1,7 @@
-const CACHE='ksp-roster-pwa-v1-1';
+const CACHE='ksp-roster4-v3';
 const FILES=[
-  './',
-  './index.html',
-  './styles.css',
-  './app.js',
-  './config.js',
-  './manifest.json',
-  './icon-192.png',
-  './icon-512.png'
+  './','./index.html','./styles.css','./app.js','./config.js',
+  './manifest.json','./icon-192.png','./icon-512.png'
 ];
 
 self.addEventListener('install',e=>{
@@ -30,7 +24,6 @@ self.addEventListener('activate',e=>{
 
 self.addEventListener('fetch',e=>{
   if(e.request.method!=='GET')return;
-
   if(new URL(e.request.url).origin===self.location.origin){
     e.respondWith(
       fetch(e.request,{cache:'no-store'})

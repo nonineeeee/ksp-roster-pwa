@@ -1,29 +1,28 @@
 
 let staff=[];
-let exceptions=[];
+let currentMonth={year:null,month:null};
 
 const $=id=>document.getElementById(id);
 
 document.addEventListener('DOMContentLoaded',()=>{
   initMonthOptions();
-  initDate();
+  initDefaultDates();
   bindEvents();
   checkApi();
   loadStaff();
-
+  loadMonthInfo().then(loadMonthRoster);
   if('serviceWorker' in navigator){
     navigator.serviceWorker.register('./service-worker.js').catch(()=>{});
   }
 });
 
 function bindEvents(){
+  $('prepareMonthBtn').addEventListener('click',prepareMonth);
   $('reloadStaffBtn').addEventListener('click',loadStaff);
-  $('addExceptionBtn').addEventListener('click',()=>addException());
-  $('previewBtn').addEventListener('click',previewRoster);
-  $('generateBtn').addEventListener('click',generateRoster);
-  $('loadCurrentBtn').addEventListener('click',loadCurrentRoster);
-  $('year').addEventListener('change',syncExceptionDateBounds);
-  $('month').addEventListener('change',syncExceptionDateBounds);
+  $('load4Btn').addEventListener('click',load4Days);
+  $('save4Btn').addEventListener('click',save4Days);
+  $('saveSingleBtn').addEventListener('click',saveSingle);
+  $('loadMonthBtn').addEventListener('click',loadMonthRoster);
 }
 
 function initMonthOptions(){
@@ -33,10 +32,21 @@ function initMonthOptions(){
     ).join('');
 }
 
-function initDate(){
+function initDefaultDates(){
   const now=new Date();
   $('year').value=now.getFullYear();
   $('month').value=now.getMonth()+1;
+
+  const iso=toIso(now);
+  $('startDate').value=iso;
+  $('singleDate').value=iso;
+}
+
+function toIso(d){
+  const y=d.getFullYear();
+  const m=String(d.getMonth()+1).padStart(2,'0');
+  const day=String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
 }
 
 function esc(v){
@@ -49,17 +59,20 @@ function esc(v){
 }
 
 function status(id,msg,type='info'){
-  $(id).innerHTML=msg?`<div class="status ${type}">${esc(msg)}</div>`:'';
+  $(id).innerHTML=
+    msg
+      ? `<div class="status ${type}">${esc(msg)}</div>`
+      : '';
 }
 
 function apiCall(action,payload={}){
   return new Promise((resolve,reject)=>{
-    if(!ROSTER_API_URL || ROSTER_API_URL.includes('PASTE_YOUR')){
-      reject(new Error('請先在 config.js 填入排班 Apps Script 的 /exec 網址。'));
+    if(!ROSTER4_API_URL || ROSTER4_API_URL.includes('PASTE_YOUR')){
+      reject(new Error('請先在 config.js 填入排班 API 的 /exec 網址。'));
       return;
     }
 
-    const requestId='r_'+Date.now()+'_'+Math.random().toString(36).slice(2);
+    const requestId='r4_'+Date.now()+'_'+Math.random().toString(36).slice(2);
     const frame='f_'+requestId;
 
     const iframe=document.createElement('iframe');
@@ -68,7 +81,7 @@ function apiCall(action,payload={}){
 
     const form=document.createElement('form');
     form.method='POST';
-    form.action=ROSTER_API_URL;
+    form.action=ROSTER4_API_URL;
     form.target=frame;
     form.style.display='none';
 
@@ -84,11 +97,11 @@ function apiCall(action,payload={}){
       form.appendChild(input);
     }
 
-    let done=false;
+    let finished=false;
 
     const cleanup=()=>{
-      if(done)return;
-      done=true;
+      if(finished)return;
+      finished=true;
       clearTimeout(timer);
       window.removeEventListener('message',onMessage);
       setTimeout(()=>{
@@ -99,8 +112,7 @@ function apiCall(action,payload={}){
 
     const onMessage=e=>{
       const d=e.data;
-      if(!d||d.source!=='ksp-roster-api'||d.requestId!==requestId)return;
-
+      if(!d||d.source!=='ksp-roster4-api'||d.requestId!==requestId)return;
       cleanup();
 
       if(d.response&&d.response.ok){
@@ -135,237 +147,284 @@ async function checkApi(){
   }
 }
 
-async function loadStaff(){
-  status('staffMessage','正在讀取人員資料…','info');
+async function loadMonthInfo(){
+  try{
+    const r=await apiCall('monthInfo',{});
+    currentMonth={year:r.year||null,month:r.month||null};
 
+    $('monthStatus').textContent=
+      r.prepared
+        ? `${r.year}年${r.month}月`
+        : '尚未建立';
+
+    if(r.prepared){
+      $('year').value=r.year;
+      $('month').value=r.month;
+      syncDateBounds();
+    }
+  }catch(e){
+    $('monthStatus').textContent='讀取失敗';
+  }
+}
+
+function syncDateBounds(){
+  if(!currentMonth.year||!currentMonth.month)return;
+
+  const y=currentMonth.year;
+  const m=String(currentMonth.month).padStart(2,'0');
+  const last=new Date(y,currentMonth.month,0).getDate();
+
+  const min=`${y}-${m}-01`;
+  const max=`${y}-${m}-${String(last).padStart(2,'0')}`;
+
+  for(const id of ['startDate','singleDate']){
+    $(id).min=min;
+    $(id).max=max;
+
+    if(!$(id).value||$(id).value<min||$(id).value>max){
+      $(id).value=min;
+    }
+  }
+}
+
+async function prepareMonth(){
+  const year=Number($('year').value);
+  const month=Number($('month').value);
+
+  if(!window.confirm(`確定建立／切換為 ${year}年${month}月？\n月排班表 A:W 會清空，X:Y 保留。`)){
+    return;
+  }
+
+  status('monthMessage','正在建立月份框架…','info');
+
+  try{
+    const r=await apiCall('prepareMonth',{
+      year,
+      month,
+      confirmText:'PREPARE'
+    });
+
+    status('monthMessage',r.message,'ok');
+
+    await loadMonthInfo();
+    await loadMonthRoster();
+
+  }catch(e){
+    status('monthMessage',e.message,'err');
+  }
+}
+
+async function loadStaff(){
   try{
     const r=await apiCall('staff',{});
     staff=r.staff||[];
 
     if(staff.length<3){
-      throw new Error('啟用人員少於3人，無法建立基本排班。');
+      throw new Error('啟用人員少於3人。');
     }
 
-    populateMainStaffSelects();
-    refreshExceptionPersonSelects();
+    populateSinglePerson();
+    refresh4DayPersonSelects();
 
-    status('staffMessage',`已讀取 ${staff.length} 位啟用人員。`,'ok');
   }catch(e){
-    status('staffMessage',e.message,'err');
+    status('fourDayMessage',e.message,'err');
   }
 }
 
-function staffOptions(allowBlank=false){
-  const blank=allowBlank?'<option value="">不設定</option>':'<option value="">請選擇</option>';
+function personOptions(allowBlank=false){
+  const first=
+    allowBlank
+      ? '<option value="">不排／清空</option>'
+      : '<option value="">請選擇</option>';
 
-  return blank+staff.map(s=>
-    `<option value="${esc(s.id)}">${esc(s.name)}（${esc(s.id)}）</option>`
-  ).join('');
+  return first+
+    staff.map(s=>
+      `<option value="${esc(s.id)}">${esc(s.name)}（${esc(s.id)}）</option>`
+    ).join('');
 }
 
-function populateMainStaffSelects(){
-  const old={
-    early1:$('early1').value,
-    early2:$('early2').value,
-    night1:$('night1').value,
-    mobile1:$('mobile1').value
-  };
+function populateSinglePerson(){
+  const old=$('singlePerson').value;
+  $('singlePerson').innerHTML=personOptions(true);
 
-  $('early1').innerHTML=staffOptions(false);
-  $('early2').innerHTML=staffOptions(false);
-  $('night1').innerHTML=staffOptions(false);
-  $('mobile1').innerHTML=staffOptions(true);
-
-  for(const [id,val] of Object.entries(old)){
-    if(val && [...$(id).options].some(o=>o.value===val)){
-      $(id).value=val;
-    }
+  if(old&&[...$('singlePerson').options].some(o=>o.value===old)){
+    $('singlePerson').value=old;
   }
 }
 
-function addException(data={}){
-  const tpl=$('exceptionTemplate').content.cloneNode(true);
-  const item=tpl.querySelector('.exception-item');
-
-  const dateInput=item.querySelector('.ex-date');
-  const slotSelect=item.querySelector('.ex-slot');
-  const personSelect=item.querySelector('.ex-person');
-
-  personSelect.innerHTML=staffOptions(false);
-
-  const bounds=getMonthBounds();
-  dateInput.min=bounds.min;
-  dateInput.max=bounds.max;
-  dateInput.value=data.date||bounds.min;
-  slotSelect.value=data.slot||'early1';
-  personSelect.value=data.personId||'';
-
-  item.querySelector('.remove-ex').addEventListener('click',()=>{
-    item.remove();
-  });
-
-  $('exceptionList').appendChild(item);
-}
-
-function refreshExceptionPersonSelects(){
-  document.querySelectorAll('.ex-person').forEach(sel=>{
+function refresh4DayPersonSelects(){
+  document.querySelectorAll('.day-person').forEach(sel=>{
     const old=sel.value;
-    sel.innerHTML=staffOptions(false);
-    if(old && [...sel.options].some(o=>o.value===old)){
+    const allowBlank=sel.dataset.slot==='mobile1';
+    sel.innerHTML=personOptions(allowBlank);
+
+    if(old&&[...sel.options].some(o=>o.value===old)){
       sel.value=old;
     }
   });
 }
 
-function getMonthBounds(){
-  const year=Number($('year').value);
-  const month=Number($('month').value);
-  const mm=String(month).padStart(2,'0');
-  const lastDay=new Date(year,month,0).getDate();
-
-  return {
-    min:`${year}-${mm}-01`,
-    max:`${year}-${mm}-${String(lastDay).padStart(2,'0')}`
-  };
-}
-
-function syncExceptionDateBounds(){
-  const b=getMonthBounds();
-
-  document.querySelectorAll('.ex-date').forEach(inp=>{
-    inp.min=b.min;
-    inp.max=b.max;
-
-    if(!inp.value || inp.value<b.min || inp.value>b.max){
-      inp.value=b.min;
-    }
-  });
-}
-
-function collectPayload(){
-  const year=Number($('year').value);
-  const month=Number($('month').value);
-
-  const fixed={
-    early1:$('early1').value,
-    early2:$('early2').value,
-    night1:$('night1').value,
-    mobile1:$('mobile1').value
-  };
-
-  const exceptions=[...document.querySelectorAll('.exception-item')].map(item=>{
-    const date=item.querySelector('.ex-date').value.replaceAll('-','/');
-    const slot=item.querySelector('.ex-slot').value;
-    const personId=item.querySelector('.ex-person').value;
-
-    return {date,slot,personId};
-  }).filter(x=>x.date&&x.slot&&x.personId);
-
-  return {year,month,fixed,exceptions};
-}
-
-async function previewRoster(){
-  status('generateMessage','正在產生預覽…','info');
+async function load4Days(){
+  status('fourDayMessage','正在載入4天排班…','info');
 
   try{
-    const r=await apiCall('preview',collectPayload());
-    renderPreview(r);
-    status('generateMessage','預覽完成，確認無誤後即可一鍵寫入月排班表。','ok');
+    const r=await apiCall('load4Days',{
+      startDate:$('startDate').value
+    });
+
+    render4Days(r.days||[]);
+    status('fourDayMessage','已載入，可直接修改4天後儲存。','ok');
+
   }catch(e){
-    status('generateMessage',e.message,'err');
+    $('fourDayList').innerHTML='';
+    $('save4Btn').classList.add('hidden');
+    status('fourDayMessage',e.message,'err');
   }
 }
 
-async function generateRoster(){
-  if(!window.confirm('確定要依目前固定班底與例外設定，覆蓋本月「月排班表」嗎？')){
+function render4Days(days){
+  const box=$('fourDayList');
+
+  box.innerHTML=days.map((d,i)=>`
+    <div class="day-card" data-date="${esc(d.date)}">
+      <div class="day-title">第${i+1}天｜${esc(d.date)}</div>
+      <div class="day-sub">${esc(d.weekday)}｜${esc(d.dayType)}</div>
+
+      <div class="day-grid">
+        <div>
+          <label>早班1</label>
+          <select class="day-person" data-slot="early1" data-current="${esc(d.early1Id)}"></select>
+        </div>
+
+        <div>
+          <label>早班2</label>
+          <select class="day-person" data-slot="early2" data-current="${esc(d.early2Id)}"></select>
+        </div>
+
+        <div>
+          <label>晚班1</label>
+          <select class="day-person" data-slot="night1" data-current="${esc(d.night1Id)}"></select>
+        </div>
+
+        <div>
+          <label>機動班1</label>
+          <select class="day-person" data-slot="mobile1" data-current="${esc(d.mobile1Id)}"></select>
+        </div>
+      </div>
+    </div>
+  `).join('');
+
+  document.querySelectorAll('.day-person').forEach(sel=>{
+    const allowBlank=sel.dataset.slot==='mobile1';
+    sel.innerHTML=personOptions(allowBlank);
+    const current=sel.dataset.current;
+
+    if(current&&[...sel.options].some(o=>o.value===current)){
+      sel.value=current;
+    }
+  });
+
+  $('save4Btn').classList.remove('hidden');
+}
+
+async function save4Days(){
+  const cards=[...document.querySelectorAll('.day-card')];
+
+  if(cards.length!==4){
+    status('fourDayMessage','請先載入4天排班。','warn');
     return;
   }
 
-  $('generateBtn').disabled=true;
-  $('generateBtn').textContent='一鍵排班中…';
-  status('generateMessage','正在寫入 Google 試算表…','info');
+  const days=cards.map(card=>{
+    const get=slot=>card.querySelector(`[data-slot="${slot}"]`).value;
+
+    return {
+      date:card.dataset.date,
+      early1:get('early1'),
+      early2:get('early2'),
+      night1:get('night1'),
+      mobile1:get('mobile1')
+    };
+  });
+
+  if(!window.confirm(`確定儲存 ${days[0].date} ～ ${days[3].date} 共4天排班？`)){
+    return;
+  }
+
+  $('save4Btn').disabled=true;
+  $('save4Btn').textContent='儲存中…';
 
   try{
-    const r=await apiCall('generate',collectPayload());
-
-    status(
-      'generateMessage',
-      `${r.message}\n例外調整：${r.exceptionCount||0} 筆`,
-      'ok'
-    );
-
-    await loadCurrentRoster();
+    const r=await apiCall('save4Days',{days});
+    status('fourDayMessage',r.message,'ok');
+    await loadMonthRoster();
   }catch(e){
-    status('generateMessage',e.message,'err');
+    status('fourDayMessage',e.message,'err');
   }finally{
-    $('generateBtn').disabled=false;
-    $('generateBtn').textContent='一鍵產生本月排班';
+    $('save4Btn').disabled=false;
+    $('save4Btn').textContent='儲存這4天排班';
   }
 }
 
-function renderPreview(r){
-  $('previewSection').classList.remove('hidden');
-  $('previewCount').textContent=`${r.totalDays||0}天`;
+async function saveSingle(){
+  const date=$('singleDate').value;
+  const slot=$('singleSlot').value;
+  const personId=$('singlePerson').value;
 
-  const warnings=r.warnings||[];
+  if(!window.confirm('確定套用這筆零散排班？只會修改指定日期的指定席次。')){
+    return;
+  }
 
-  $('warningList').innerHTML=warnings.map(w=>
-    `<div class="warning-item ${esc(w.level)}">${esc(w.date)}｜${esc(w.message)}</div>`
-  ).join('');
-
-  $('previewList').innerHTML=(r.rows||[]).map(renderPreviewItem).join('');
-}
-
-function renderPreviewItem(r){
-  const cls=String(r.check||'').startsWith('OK')?'check-ok':'check-warn';
-
-  return `
-    <div class="preview-item">
-      <div class="preview-head">
-        <div>
-          <div class="preview-date">${esc(r.date)}｜${esc(r.weekday)}</div>
-          <div class="preview-type">${esc(r.dayType)}</div>
-        </div>
-        <strong class="${cls}">${esc(r.check)}</strong>
-      </div>
-
-      <div class="shift-line"><span>早班1</span><strong>${esc(r.early1Name)}（${esc(r.early1Id)}）</strong></div>
-      <div class="shift-line"><span>早班2</span><strong>${esc(r.early2Name)}（${esc(r.early2Id)}）</strong></div>
-      <div class="shift-line"><span>晚班1</span><strong>${esc(r.night1Name)}（${esc(r.night1Id)}）</strong></div>
-      ${r.mobile1Id?`<div class="shift-line"><span>機動</span><strong>${esc(r.mobile1Name)}（${esc(r.mobile1Id)}）</strong></div>`:''}
-      ${r.note?`<div class="preview-type">${esc(r.note)}</div>`:''}
-    </div>
-  `;
-}
-
-async function loadCurrentRoster(){
-  $('currentList').innerHTML='<div class="status info">讀取中…</div>';
+  $('saveSingleBtn').disabled=true;
 
   try{
-    const r=await apiCall('currentMonth',{});
+    const r=await apiCall('saveSingle',{
+      date,
+      slot,
+      personId
+    });
 
-    if(!(r.rows||[]).length){
-      $('currentList').innerHTML='<div class="status info">目前月排班表沒有資料。</div>';
+    status('singleMessage',r.message,'ok');
+    await loadMonthRoster();
+
+  }catch(e){
+    status('singleMessage',e.message,'err');
+  }finally{
+    $('saveSingleBtn').disabled=false;
+  }
+}
+
+async function loadMonthRoster(){
+  const box=$('monthRoster');
+  box.innerHTML='<div class="status info">讀取中…</div>';
+
+  try{
+    const r=await apiCall('monthRoster',{});
+    const rows=r.rows||[];
+
+    if(!rows.length){
+      box.innerHTML='<div class="status info">目前沒有月排班資料。</div>';
       return;
     }
 
-    $('currentList').innerHTML=r.rows.map(x=>`
-      <div class="preview-item">
-        <div class="preview-head">
+    box.innerHTML=rows.map(x=>`
+      <div class="month-item">
+        <div class="month-head">
           <div>
-            <div class="preview-date">${esc(x.date)}｜${esc(x.weekday)}</div>
-            <div class="preview-type">${esc(x.dayType)}</div>
+            <div class="month-date">${esc(x.date)}｜${esc(x.weekday)}</div>
+            <div class="day-sub">${esc(x.dayType)}${x.note?`｜${esc(x.note)}`:''}</div>
           </div>
-          <strong class="${String(x.check).startsWith('OK')?'check-ok':'check-warn'}">${esc(x.check)}</strong>
+          <strong class="month-check ${String(x.check).startsWith('OK')?'oktxt':'warntext'}">${esc(x.check||'未排')}</strong>
         </div>
-        <div class="shift-line"><span>早班1</span><strong>${esc(x.early1)}</strong></div>
-        <div class="shift-line"><span>早班2</span><strong>${esc(x.early2)}</strong></div>
-        <div class="shift-line"><span>晚班1</span><strong>${esc(x.night1)}</strong></div>
-        ${x.mobile1?`<div class="shift-line"><span>機動</span><strong>${esc(x.mobile1)}</strong></div>`:''}
-        ${x.note?`<div class="preview-type">${esc(x.note)}</div>`:''}
+
+        <div class="shift"><span>早班1</span><strong>${esc(x.early1||'—')}</strong></div>
+        <div class="shift"><span>早班2</span><strong>${esc(x.early2||'—')}</strong></div>
+        <div class="shift"><span>晚班1</span><strong>${esc(x.night1||'—')}</strong></div>
+        ${x.mobile1?`<div class="shift"><span>機動</span><strong>${esc(x.mobile1)}</strong></div>`:''}
       </div>
     `).join('');
+
   }catch(e){
-    $('currentList').innerHTML=`<div class="status err">${esc(e.message)}</div>`;
+    box.innerHTML=`<div class="status err">${esc(e.message)}</div>`;
   }
 }

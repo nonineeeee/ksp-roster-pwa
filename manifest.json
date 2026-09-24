@@ -1,6 +1,6 @@
 {
-  "name": "高雄軟體園區保全一鍵排班",
-  "short_name": "高軟一鍵排班",
+  "name": "高雄軟體園區保全4日排班",
+  "short_name": "高軟4日排班",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
