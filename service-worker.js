@@ -1,4 +1,4 @@
-const CACHE='ksp-roster4-v5';
+const CACHE='ksp-roster4-v6';
 const FILES=[
   './','./index.html','./styles.css','./app.js','./config.js',
   './manifest.json','./icon-192.png','./icon-512.png'

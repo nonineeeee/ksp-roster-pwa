@@ -560,7 +560,9 @@ function toggleSingleMobileShift(){
     .classList
     .toggle(
       'hidden',
-      $('singleSlot').value!=='mobile1'
+      !['mobile1','mobile2'].includes(
+        $('singleSlot').value
+      )
     );
 }
 
@@ -569,7 +571,7 @@ async function saveSingle(){
   const slot=$('singleSlot').value;
   const personId=$('singlePerson').value;
   const mobileShift=
-    slot==='mobile1'
+    ['mobile1','mobile2'].includes(slot)
       ? $('singleMobileShift').value
       : '';
 
@@ -623,7 +625,8 @@ async function loadMonthRoster(){
         <div class="shift"><span>白班1</span><strong>${esc(x.early1||'—')}</strong></div>
         <div class="shift"><span>白班2</span><strong>${esc(x.early2||'—')}</strong></div>
         <div class="shift"><span>晚班1</span><strong>${esc(x.night1||'—')}</strong></div>
-        ${x.mobile1?`<div class="shift"><span>機動${esc(x.mobileShift||'')}</span><strong>${esc(x.mobile1)}</strong></div>`:''}
+        ${x.mobile1?`<div class="shift"><span>機動1 ${esc(x.mobileShift||'')}</span><strong>${esc(x.mobile1)}</strong></div>`:''}
+        ${x.mobile2?`<div class="shift"><span>機動2 ${esc(x.mobile2Shift||'')}</span><strong>${esc(x.mobile2)}</strong></div>`:''}
       </div>
     `).join('');
 

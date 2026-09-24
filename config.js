@@ -1,3 +1,3 @@
 // 將排班專用 Apps Script Web App 的完整 /exec 網址貼在下方。
-const ROSTER4_API_URL = 'https://script.google.com/macros/s/AKfycbyELt2_AjtYqGv38kFOekmMDQu6BgUfevKKeSVeFZiaX8swv1O_YlLnHOP1k6qPAQpQ/exec';
+const ROSTER4_API_URL = 'PASTE_YOUR_ROSTER4_API_EXEC_URL_HERE';
 const API_TIMEOUT_MS = 25000;
