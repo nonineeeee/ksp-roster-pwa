@@ -1,7 +1,7 @@
 
 let staff=[];
 let currentMonth={year:null,month:null};
-let batchAssignments=[];
+let person4Days=[];
 
 const $=id=>document.getElementById(id);
 
@@ -22,10 +22,15 @@ document.addEventListener('DOMContentLoaded',()=>{
 function bindEvents(){
   $('prepareMonthBtn').addEventListener('click',prepareMonth);
   $('reloadStaffBtn').addEventListener('click',loadStaff);
-  $('startDate').addEventListener('change',updateRangeText);
-  $('chooseDayBtn').addEventListener('click',()=>addBatchAssignment('白班'));
-  $('chooseNightBtn').addEventListener('click',()=>addBatchAssignment('晚班'));
-  $('save4Btn').addEventListener('click',save4Days);
+  $('startDate').addEventListener('change',()=>{
+    updateRangeText();
+    buildPerson4DayEditor();
+  });
+  $('batchPerson').addEventListener('change',buildPerson4DayEditor);
+  $('allDayBtn').addEventListener('click',()=>setAll4('白班'));
+  $('allNightBtn').addEventListener('click',()=>setAll4('晚班'));
+  $('allOffBtn').addEventListener('click',()=>setAll4('不排'));
+  $('savePerson4Btn').addEventListener('click',savePerson4Days);
   $('singleSlot').addEventListener('change',toggleSingleMobileShift);
   $('saveSingleBtn').addEventListener('click',saveSingle);
   $('loadMonthBtn').addEventListener('click',loadMonthRoster);
@@ -218,8 +223,8 @@ async function prepareMonth(){
     });
 
     status('monthMessage',r.message,'ok');
-    batchAssignments=[];
-    renderBatchAssignments();
+    person4Days=[];
+    buildPerson4DayEditor();
     await loadMonthInfo();
     await loadMonthRoster();
 
@@ -270,7 +275,10 @@ function populateStaffSelects(){
   if(singleOld&&[...$('singlePerson').options].some(o=>o.value===singleOld)){
     $('singlePerson').value=singleOld;
   }
+
+  buildPerson4DayEditor();
 }
+
 
 function updateRangeText(){
   const start=parseIso($('startDate').value);
@@ -284,182 +292,268 @@ function updateRangeText(){
   end.setDate(end.getDate()+3);
 
   if(end.getMonth()!==start.getMonth()){
-    $('rangeText').textContent='此起始日會跨月，請改用零星調整完成月底剩餘日期';
+    $('rangeText').textContent='此起始日會跨月，月底剩餘日期請使用零星調整';
     return;
   }
 
-  $('rangeText').textContent=`${toIso(start)} ～ ${toIso(end)}｜共4天`;
+  $('rangeText').textContent=
+    `${toIso(start)} ～ ${toIso(end)}｜共4天`;
 }
 
-function addBatchAssignment(shift){
-  const personId=$('batchPerson').value;
+
+function buildPerson4DayEditor(){
+  const start=
+    parseIso(
+      $('startDate').value
+    );
+
+  const personId=
+    $('batchPerson').value;
+
+  const box=
+    $('person4DayList');
+
+  person4Days=[];
+
+  if(!start){
+    box.innerHTML=
+      '<div class="status info">請先選擇起始日期。</div>';
+    return;
+  }
+
+  const end=
+    new Date(start);
+
+  end.setDate(
+    end.getDate()+3
+  );
+
+  if(
+    end.getMonth() !==
+    start.getMonth()
+  ){
+    box.innerHTML=
+      '<div class="status warn">4天不可跨月，月底剩餘日期請用零星調整。</div>';
+    return;
+  }
 
   if(!personId){
-    status('fourDayMessage','請先選擇人員。','warn');
+    box.innerHTML=
+      '<div class="status info">請先選擇一位保全。</div>';
     return;
   }
 
-  if(batchAssignments.some(x=>x.personId===personId)){
-    status('fourDayMessage','同一位人員不可重複加入4天班。','warn');
-    return;
+  for(let i=0;i<4;i++){
+    const d=
+      new Date(start);
+
+    d.setDate(
+      d.getDate()+i
+    );
+
+    person4Days.push({
+      date:
+        toIso(d),
+      shift:
+        '不排'
+    });
   }
 
-  if(batchAssignments.length>=4){
-    status('fourDayMessage','每批最多4位人員。','warn');
-    return;
-  }
-
-  const dayCount=batchAssignments.filter(x=>x.shift==='白班').length;
-  const nightCount=batchAssignments.filter(x=>x.shift==='晚班').length;
-
-  if(shift==='白班' && dayCount>=3){
-    status('fourDayMessage','白班最多3人（第3人會列為機動白班）。','warn');
-    return;
-  }
-
-  if(shift==='晚班' && nightCount>=2){
-    status('fourDayMessage','晚班最多2人（第2人會列為機動晚班）。','warn');
-    return;
-  }
-
-  batchAssignments.push({personId,shift});
-  $('batchPerson').value='';
-  renderBatchAssignments();
-  status('fourDayMessage','','info');
+  renderPerson4Days();
 }
 
-function renderBatchAssignments(){
-  const box=$('batchAssignments');
 
-  if(!batchAssignments.length){
-    box.innerHTML='<div class="status info">尚未加入人員。請逐一選人，再點白班或晚班。</div>';
+function renderPerson4Days(){
+  const box=
+    $('person4DayList');
+
+  if(!person4Days.length){
+    box.innerHTML=
+      '<div class="status info">請選擇保全與起始日期。</div>';
     return;
   }
 
-  box.innerHTML=batchAssignments.map((x,i)=>{
-    const s=staff.find(v=>v.id===x.personId);
-    return `
-      <div class="assignment-item">
-        <div class="assignment-main">
-          <span class="shift-pill ${x.shift==='白班'?'day':'night'}">${esc(x.shift)}</span>
-          <strong>${esc(s?.name||x.personId)}（${esc(x.personId)}）</strong>
-        </div>
-        <button class="remove-assignment" type="button" data-i="${i}">移除</button>
-      </div>
-    `;
-  }).join('');
+  box.innerHTML=
+    person4Days.map(
+      (x,i)=>`
+        <div class="person4-item">
+          <div class="person4-head">
+            <div>
+              <div class="person4-date">第${i+1}天｜${esc(x.date)}</div>
+              <div class="person4-current">目前設定：${esc(x.shift)}</div>
+            </div>
+          </div>
 
-  box.querySelectorAll('.remove-assignment').forEach(btn=>{
-    btn.addEventListener('click',()=>{
-      batchAssignments.splice(Number(btn.dataset.i),1);
-      renderBatchAssignments();
-    });
+          <div class="person4-shifts">
+            <button
+              type="button"
+              data-i="${i}"
+              data-shift="白班"
+              class="${x.shift==='白班'?'active-day':''}"
+            >白班</button>
+
+            <button
+              type="button"
+              data-i="${i}"
+              data-shift="晚班"
+              class="${x.shift==='晚班'?'active-night':''}"
+            >晚班</button>
+
+            <button
+              type="button"
+              data-i="${i}"
+              data-shift="不排"
+              class="${x.shift==='不排'?'active-off':''}"
+            >不排</button>
+          </div>
+        </div>
+      `
+    ).join('');
+
+  box.querySelectorAll(
+    '[data-shift]'
+  ).forEach(btn=>{
+    btn.addEventListener(
+      'click',
+      ()=>{
+        const i=
+          Number(
+            btn.dataset.i
+          );
+
+        person4Days[i].shift=
+          btn.dataset.shift;
+
+        renderPerson4Days();
+      }
+    );
   });
 }
 
-function build4DayPayload(){
-  const start=parseIso($('startDate').value);
 
-  if(!start){
-    throw new Error('請選擇4天排班起始日。');
+function setAll4(
+  shift
+){
+  if(!person4Days.length){
+    buildPerson4DayEditor();
   }
 
-  const end=new Date(start);
-  end.setDate(end.getDate()+3);
-
-  if(end.getMonth()!==start.getMonth()){
-    throw new Error('4天班不可跨月；月底剩餘日期請用「零星調整」。');
+  if(!person4Days.length){
+    return;
   }
 
-  if(batchAssignments.length<3){
-    throw new Error('至少要加入3位人員。');
-  }
+  person4Days=
+    person4Days.map(
+      x=>({
+        ...x,
+        shift:shift
+      })
+    );
 
-  const dayPeople=batchAssignments.filter(x=>x.shift==='白班');
-  const nightPeople=batchAssignments.filter(x=>x.shift==='晚班');
-
-  if(dayPeople.length<2){
-    throw new Error('基本勤務至少需要2位白班人員。');
-  }
-
-  if(nightPeople.length<1){
-    throw new Error('基本勤務至少需要1位晚班人員。');
-  }
-
-  if(batchAssignments.length>4){
-    throw new Error('每批最多4位人員。');
-  }
-
-  const base={
-    early1:dayPeople[0]?.personId||'',
-    early2:dayPeople[1]?.personId||'',
-    night1:nightPeople[0]?.personId||'',
-    mobile1:'',
-    mobileShift:''
-  };
-
-  if(batchAssignments.length===4){
-    if(dayPeople.length===3 && nightPeople.length===1){
-      base.mobile1=dayPeople[2].personId;
-      base.mobileShift='白班';
-    }else if(dayPeople.length===2 && nightPeople.length===2){
-      base.mobile1=nightPeople[1].personId;
-      base.mobileShift='晚班';
-    }else{
-      throw new Error('4人排班需為「3白1晚」或「2白2晚」。');
-    }
-  }
-
-  const days=[];
-
-  for(let i=0;i<4;i++){
-    const d=new Date(start);
-    d.setDate(d.getDate()+i);
-
-    days.push({
-      date:toIso(d).replaceAll('-','/'),
-      early1:base.early1,
-      early2:base.early2,
-      night1:base.night1,
-      mobile1:base.mobile1,
-      mobileShift:base.mobileShift
-    });
-  }
-
-  return {days};
+  renderPerson4Days();
 }
 
-async function save4Days(){
-  let payload;
 
-  try{
-    payload=build4DayPayload();
-  }catch(e){
-    status('fourDayMessage',e.message,'warn');
+async function savePerson4Days(){
+  const personId=
+    $('batchPerson').value;
+
+  if(!personId){
+    status(
+      'fourDayMessage',
+      '請先選擇保全。',
+      'warn'
+    );
     return;
   }
 
-  const first=payload.days[0].date;
-  const last=payload.days[3].date;
-
-  if(!window.confirm(`確定把目前人員班別套用到 ${first} ～ ${last} 共4天？`)){
+  if(
+    person4Days.length !== 4
+  ){
+    status(
+      'fourDayMessage',
+      '請先設定4天班表。',
+      'warn'
+    );
     return;
   }
 
-  $('save4Btn').disabled=true;
-  $('save4Btn').textContent='套用中…';
+  const staffInfo=
+    staff.find(
+      s=>
+        s.id===personId
+    );
+
+  const summary=
+    person4Days
+      .map(
+        x=>
+          `${x.date} ${x.shift}`
+      )
+      .join('\n');
+
+  if(
+    !window.confirm(
+      `確定更新 ${staffInfo?.name||personId}（${personId}）的4天班表？\n\n${summary}\n\n其他保全既有排班不會變動。`
+    )
+  ){
+    return;
+  }
+
+  $('savePerson4Btn')
+    .disabled=true;
+
+  $('savePerson4Btn')
+    .textContent=
+    '更新中…';
 
   try{
-    const r=await apiCall('save4Days',payload);
-    status('fourDayMessage',r.message,'ok');
+    const r=
+      await apiCall(
+        'updatePerson4Days',
+        {
+          personId:
+            personId,
+          days:
+            person4Days.map(
+              x=>({
+                date:
+                  x.date.replaceAll(
+                    '-',
+                    '/'
+                  ),
+                shift:
+                  x.shift
+              })
+            )
+        }
+      );
+
+    status(
+      'fourDayMessage',
+      r.message,
+      'ok'
+    );
+
     await loadMonthRoster();
+
   }catch(e){
-    status('fourDayMessage',e.message,'err');
+    status(
+      'fourDayMessage',
+      e.message,
+      'err'
+    );
+
   }finally{
-    $('save4Btn').disabled=false;
-    $('save4Btn').textContent='套用此班表到4天';
+    $('savePerson4Btn')
+      .disabled=false;
+
+    $('savePerson4Btn')
+      .textContent=
+      '更新此保全的4天班表';
   }
 }
+
 
 function toggleSingleMobileShift(){
   $('singleMobileShiftWrap')

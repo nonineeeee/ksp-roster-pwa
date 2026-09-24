@@ -17,7 +17,7 @@
     <div class="logo">4D</div>
     <div>
       <h1>高雄軟體園區<br>保全勤務排班</h1>
-      <p>選人員＋白／晚班，一次套用4天＋零星調整</p>
+      <p>先選保全，再更新這位保全的4天班表＋零星調整</p>
     </div>
   </header>
 
@@ -63,7 +63,7 @@
     <div class="section-head">
       <div>
         <div class="eyebrow">主要排班方式</div>
-        <h2>② 人員班別套用4天</h2>
+        <h2>② 逐人更新4天班表</h2>
       </div>
       <button id="reloadStaffBtn" class="text-btn">重讀人員</button>
     </div>
@@ -73,23 +73,25 @@
 
     <div id="rangeText" class="range-text">請選擇起始日期</div>
 
-    <div class="assign-builder">
-      <label for="batchPerson">先選人員</label>
-      <select id="batchPerson"></select>
+    <label for="batchPerson">先選擇保全</label>
+    <select id="batchPerson"></select>
 
-      <div class="shift-choice">
-        <button id="chooseDayBtn" class="shift-btn day" type="button">白班</button>
-        <button id="chooseNightBtn" class="shift-btn night" type="button">晚班</button>
-      </div>
-
-      <div class="hint">
-        每加入1人，就會套用到這4天。基本建議為「2位白班＋1位晚班」；第4位機動人員可選白班或晚班。
-      </div>
+    <div class="quick-shift-row">
+      <button id="allDayBtn" class="shift-btn day" type="button">4天全白班</button>
+      <button id="allNightBtn" class="shift-btn night" type="button">4天全晚班</button>
+      <button id="allOffBtn" class="shift-btn off" type="button">4天都不排</button>
     </div>
 
-    <div id="batchAssignments" class="assignment-list"></div>
+    <div class="notice">
+      不必一次排滿3位保全。可以先排 S001，再排 S003，再排其他人；每次只更新「目前選到的這位保全」。
+    </div>
 
-    <button id="save4Btn" class="btn primary">套用此班表到4天</button>
+    <div id="person4DayList" class="person4-list"></div>
+
+    <button id="savePerson4Btn" class="btn primary">
+      更新此保全的4天班表
+    </button>
+
     <div id="fourDayMessage"></div>
   </section>
 

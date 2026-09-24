@@ -119,3 +119,73 @@ footer{text-align:center;color:#718aa0;font-size:12px;padding:12px}
   color:#fca5a5;
   font-weight:900;
 }
+
+
+/* ===== v5 逐人更新4天 ===== */
+.quick-shift-row{
+  display:grid;
+  grid-template-columns:1fr 1fr 1fr;
+  gap:8px;
+  margin-top:12px;
+}
+.shift-btn.off{
+  background:#273444;
+  border-color:#64748b;
+}
+.person4-list{
+  display:grid;
+  gap:10px;
+  margin-top:12px;
+}
+.person4-item{
+  border:1px solid #315a7f;
+  background:#081827;
+  border-radius:16px;
+  padding:13px;
+}
+.person4-head{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  align-items:center;
+}
+.person4-date{
+  font-weight:900;
+  color:#bae6fd;
+}
+.person4-current{
+  color:#94a3b8;
+  font-size:12px;
+  margin-top:3px;
+}
+.person4-shifts{
+  display:grid;
+  grid-template-columns:1fr 1fr 1fr;
+  gap:7px;
+  margin-top:10px;
+}
+.person4-shifts button{
+  padding:11px 8px;
+  border-radius:12px;
+  border:1px solid #3c5870;
+  background:#0d2133;
+  color:#fff;
+  font-weight:800;
+}
+.person4-shifts button.active-day{
+  background:#0c4a6e;
+  border-color:#38bdf8;
+}
+.person4-shifts button.active-night{
+  background:#312e81;
+  border-color:#818cf8;
+}
+.person4-shifts button.active-off{
+  background:#374151;
+  border-color:#94a3b8;
+}
+@media(max-width:430px){
+  .quick-shift-row{
+    grid-template-columns:1fr;
+  }
+}
