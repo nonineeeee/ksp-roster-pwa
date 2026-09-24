@@ -1,6 +1,7 @@
 
 let staff=[];
 let currentMonth={year:null,month:null};
+let batchAssignments=[];
 
 const $=id=>document.getElementById(id);
 
@@ -8,9 +9,11 @@ document.addEventListener('DOMContentLoaded',()=>{
   initMonthOptions();
   initDefaultDates();
   bindEvents();
+  updateRangeText();
   checkApi();
   loadStaff();
   loadMonthInfo().then(loadMonthRoster);
+
   if('serviceWorker' in navigator){
     navigator.serviceWorker.register('./service-worker.js').catch(()=>{});
   }
@@ -19,8 +22,11 @@ document.addEventListener('DOMContentLoaded',()=>{
 function bindEvents(){
   $('prepareMonthBtn').addEventListener('click',prepareMonth);
   $('reloadStaffBtn').addEventListener('click',loadStaff);
-  $('load4Btn').addEventListener('click',load4Days);
+  $('startDate').addEventListener('change',updateRangeText);
+  $('chooseDayBtn').addEventListener('click',()=>addBatchAssignment('白班'));
+  $('chooseNightBtn').addEventListener('click',()=>addBatchAssignment('晚班'));
   $('save4Btn').addEventListener('click',save4Days);
+  $('singleSlot').addEventListener('change',toggleSingleMobileShift);
   $('saveSingleBtn').addEventListener('click',saveSingle);
   $('loadMonthBtn').addEventListener('click',loadMonthRoster);
 }
@@ -36,7 +42,6 @@ function initDefaultDates(){
   const now=new Date();
   $('year').value=now.getFullYear();
   $('month').value=now.getMonth()+1;
-
   const iso=toIso(now);
   $('startDate').value=iso;
   $('singleDate').value=iso;
@@ -47,6 +52,12 @@ function toIso(d){
   const m=String(d.getMonth()+1).padStart(2,'0');
   const day=String(d.getDate()).padStart(2,'0');
   return `${y}-${m}-${day}`;
+}
+
+function parseIso(s){
+  const [y,m,d]=String(s||'').split('-').map(Number);
+  if(!y||!m||!d)return null;
+  return new Date(y,m-1,d);
 }
 
 function esc(v){
@@ -185,6 +196,8 @@ function syncDateBounds(){
       $(id).value=min;
     }
   }
+
+  updateRangeText();
 }
 
 async function prepareMonth(){
@@ -205,7 +218,8 @@ async function prepareMonth(){
     });
 
     status('monthMessage',r.message,'ok');
-
+    batchAssignments=[];
+    renderBatchAssignments();
     await loadMonthInfo();
     await loadMonthRoster();
 
@@ -223,8 +237,7 @@ async function loadStaff(){
       throw new Error('啟用人員少於3人。');
     }
 
-    populateSinglePerson();
-    refresh4DayPersonSelects();
+    populateStaffSelects();
 
   }catch(e){
     status('fourDayMessage',e.message,'err');
@@ -235,7 +248,7 @@ function personOptions(allowBlank=false){
   const first=
     allowBlank
       ? '<option value="">不排／清空</option>'
-      : '<option value="">請選擇</option>';
+      : '<option value="">請選擇人員</option>';
 
   return first+
     staff.map(s=>
@@ -243,135 +256,230 @@ function personOptions(allowBlank=false){
     ).join('');
 }
 
-function populateSinglePerson(){
-  const old=$('singlePerson').value;
+function populateStaffSelects(){
+  const batchOld=$('batchPerson').value;
+  const singleOld=$('singlePerson').value;
+
+  $('batchPerson').innerHTML=personOptions(false);
   $('singlePerson').innerHTML=personOptions(true);
 
-  if(old&&[...$('singlePerson').options].some(o=>o.value===old)){
-    $('singlePerson').value=old;
+  if(batchOld&&[...$('batchPerson').options].some(o=>o.value===batchOld)){
+    $('batchPerson').value=batchOld;
+  }
+
+  if(singleOld&&[...$('singlePerson').options].some(o=>o.value===singleOld)){
+    $('singlePerson').value=singleOld;
   }
 }
 
-function refresh4DayPersonSelects(){
-  document.querySelectorAll('.day-person').forEach(sel=>{
-    const old=sel.value;
-    const allowBlank=sel.dataset.slot==='mobile1';
-    sel.innerHTML=personOptions(allowBlank);
+function updateRangeText(){
+  const start=parseIso($('startDate').value);
 
-    if(old&&[...sel.options].some(o=>o.value===old)){
-      sel.value=old;
-    }
-  });
-}
-
-async function load4Days(){
-  status('fourDayMessage','正在載入4天排班…','info');
-
-  try{
-    const r=await apiCall('load4Days',{
-      startDate:$('startDate').value
-    });
-
-    render4Days(r.days||[]);
-    status('fourDayMessage','已載入，可直接修改4天後儲存。','ok');
-
-  }catch(e){
-    $('fourDayList').innerHTML='';
-    $('save4Btn').classList.add('hidden');
-    status('fourDayMessage',e.message,'err');
-  }
-}
-
-function render4Days(days){
-  const box=$('fourDayList');
-
-  box.innerHTML=days.map((d,i)=>`
-    <div class="day-card" data-date="${esc(d.date)}">
-      <div class="day-title">第${i+1}天｜${esc(d.date)}</div>
-      <div class="day-sub">${esc(d.weekday)}｜${esc(d.dayType)}</div>
-
-      <div class="day-grid">
-        <div>
-          <label>早班1</label>
-          <select class="day-person" data-slot="early1" data-current="${esc(d.early1Id)}"></select>
-        </div>
-
-        <div>
-          <label>早班2</label>
-          <select class="day-person" data-slot="early2" data-current="${esc(d.early2Id)}"></select>
-        </div>
-
-        <div>
-          <label>晚班1</label>
-          <select class="day-person" data-slot="night1" data-current="${esc(d.night1Id)}"></select>
-        </div>
-
-        <div>
-          <label>機動班1</label>
-          <select class="day-person" data-slot="mobile1" data-current="${esc(d.mobile1Id)}"></select>
-        </div>
-      </div>
-    </div>
-  `).join('');
-
-  document.querySelectorAll('.day-person').forEach(sel=>{
-    const allowBlank=sel.dataset.slot==='mobile1';
-    sel.innerHTML=personOptions(allowBlank);
-    const current=sel.dataset.current;
-
-    if(current&&[...sel.options].some(o=>o.value===current)){
-      sel.value=current;
-    }
-  });
-
-  $('save4Btn').classList.remove('hidden');
-}
-
-async function save4Days(){
-  const cards=[...document.querySelectorAll('.day-card')];
-
-  if(cards.length!==4){
-    status('fourDayMessage','請先載入4天排班。','warn');
+  if(!start){
+    $('rangeText').textContent='請選擇起始日期';
     return;
   }
 
-  const days=cards.map(card=>{
-    const get=slot=>card.querySelector(`[data-slot="${slot}"]`).value;
+  const end=new Date(start);
+  end.setDate(end.getDate()+3);
 
-    return {
-      date:card.dataset.date,
-      early1:get('early1'),
-      early2:get('early2'),
-      night1:get('night1'),
-      mobile1:get('mobile1')
-    };
+  if(end.getMonth()!==start.getMonth()){
+    $('rangeText').textContent='此起始日會跨月，請改用零星調整完成月底剩餘日期';
+    return;
+  }
+
+  $('rangeText').textContent=`${toIso(start)} ～ ${toIso(end)}｜共4天`;
+}
+
+function addBatchAssignment(shift){
+  const personId=$('batchPerson').value;
+
+  if(!personId){
+    status('fourDayMessage','請先選擇人員。','warn');
+    return;
+  }
+
+  if(batchAssignments.some(x=>x.personId===personId)){
+    status('fourDayMessage','同一位人員不可重複加入4天班。','warn');
+    return;
+  }
+
+  if(batchAssignments.length>=4){
+    status('fourDayMessage','每批最多4位人員。','warn');
+    return;
+  }
+
+  const dayCount=batchAssignments.filter(x=>x.shift==='白班').length;
+  const nightCount=batchAssignments.filter(x=>x.shift==='晚班').length;
+
+  if(shift==='白班' && dayCount>=3){
+    status('fourDayMessage','白班最多3人（第3人會列為機動白班）。','warn');
+    return;
+  }
+
+  if(shift==='晚班' && nightCount>=2){
+    status('fourDayMessage','晚班最多2人（第2人會列為機動晚班）。','warn');
+    return;
+  }
+
+  batchAssignments.push({personId,shift});
+  $('batchPerson').value='';
+  renderBatchAssignments();
+  status('fourDayMessage','','info');
+}
+
+function renderBatchAssignments(){
+  const box=$('batchAssignments');
+
+  if(!batchAssignments.length){
+    box.innerHTML='<div class="status info">尚未加入人員。請逐一選人，再點白班或晚班。</div>';
+    return;
+  }
+
+  box.innerHTML=batchAssignments.map((x,i)=>{
+    const s=staff.find(v=>v.id===x.personId);
+    return `
+      <div class="assignment-item">
+        <div class="assignment-main">
+          <span class="shift-pill ${x.shift==='白班'?'day':'night'}">${esc(x.shift)}</span>
+          <strong>${esc(s?.name||x.personId)}（${esc(x.personId)}）</strong>
+        </div>
+        <button class="remove-assignment" type="button" data-i="${i}">移除</button>
+      </div>
+    `;
+  }).join('');
+
+  box.querySelectorAll('.remove-assignment').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      batchAssignments.splice(Number(btn.dataset.i),1);
+      renderBatchAssignments();
+    });
   });
+}
 
-  if(!window.confirm(`確定儲存 ${days[0].date} ～ ${days[3].date} 共4天排班？`)){
+function build4DayPayload(){
+  const start=parseIso($('startDate').value);
+
+  if(!start){
+    throw new Error('請選擇4天排班起始日。');
+  }
+
+  const end=new Date(start);
+  end.setDate(end.getDate()+3);
+
+  if(end.getMonth()!==start.getMonth()){
+    throw new Error('4天班不可跨月；月底剩餘日期請用「零星調整」。');
+  }
+
+  if(batchAssignments.length<3){
+    throw new Error('至少要加入3位人員。');
+  }
+
+  const dayPeople=batchAssignments.filter(x=>x.shift==='白班');
+  const nightPeople=batchAssignments.filter(x=>x.shift==='晚班');
+
+  if(dayPeople.length<2){
+    throw new Error('基本勤務至少需要2位白班人員。');
+  }
+
+  if(nightPeople.length<1){
+    throw new Error('基本勤務至少需要1位晚班人員。');
+  }
+
+  if(batchAssignments.length>4){
+    throw new Error('每批最多4位人員。');
+  }
+
+  const base={
+    early1:dayPeople[0]?.personId||'',
+    early2:dayPeople[1]?.personId||'',
+    night1:nightPeople[0]?.personId||'',
+    mobile1:'',
+    mobileShift:''
+  };
+
+  if(batchAssignments.length===4){
+    if(dayPeople.length===3 && nightPeople.length===1){
+      base.mobile1=dayPeople[2].personId;
+      base.mobileShift='白班';
+    }else if(dayPeople.length===2 && nightPeople.length===2){
+      base.mobile1=nightPeople[1].personId;
+      base.mobileShift='晚班';
+    }else{
+      throw new Error('4人排班需為「3白1晚」或「2白2晚」。');
+    }
+  }
+
+  const days=[];
+
+  for(let i=0;i<4;i++){
+    const d=new Date(start);
+    d.setDate(d.getDate()+i);
+
+    days.push({
+      date:toIso(d).replaceAll('-','/'),
+      early1:base.early1,
+      early2:base.early2,
+      night1:base.night1,
+      mobile1:base.mobile1,
+      mobileShift:base.mobileShift
+    });
+  }
+
+  return {days};
+}
+
+async function save4Days(){
+  let payload;
+
+  try{
+    payload=build4DayPayload();
+  }catch(e){
+    status('fourDayMessage',e.message,'warn');
+    return;
+  }
+
+  const first=payload.days[0].date;
+  const last=payload.days[3].date;
+
+  if(!window.confirm(`確定把目前人員班別套用到 ${first} ～ ${last} 共4天？`)){
     return;
   }
 
   $('save4Btn').disabled=true;
-  $('save4Btn').textContent='儲存中…';
+  $('save4Btn').textContent='套用中…';
 
   try{
-    const r=await apiCall('save4Days',{days});
+    const r=await apiCall('save4Days',payload);
     status('fourDayMessage',r.message,'ok');
     await loadMonthRoster();
   }catch(e){
     status('fourDayMessage',e.message,'err');
   }finally{
     $('save4Btn').disabled=false;
-    $('save4Btn').textContent='儲存這4天排班';
+    $('save4Btn').textContent='套用此班表到4天';
   }
+}
+
+function toggleSingleMobileShift(){
+  $('singleMobileShiftWrap')
+    .classList
+    .toggle(
+      'hidden',
+      $('singleSlot').value!=='mobile1'
+    );
 }
 
 async function saveSingle(){
   const date=$('singleDate').value;
   const slot=$('singleSlot').value;
   const personId=$('singlePerson').value;
+  const mobileShift=
+    slot==='mobile1'
+      ? $('singleMobileShift').value
+      : '';
 
-  if(!window.confirm('確定套用這筆零散排班？只會修改指定日期的指定席次。')){
+  if(!window.confirm('確定套用這筆零星調整？只會修改指定日期的指定位置。')){
     return;
   }
 
@@ -381,7 +489,8 @@ async function saveSingle(){
     const r=await apiCall('saveSingle',{
       date,
       slot,
-      personId
+      personId,
+      mobileShift
     });
 
     status('singleMessage',r.message,'ok');
@@ -417,10 +526,10 @@ async function loadMonthRoster(){
           <strong class="month-check ${String(x.check).startsWith('OK')?'oktxt':'warntext'}">${esc(x.check||'未排')}</strong>
         </div>
 
-        <div class="shift"><span>早班1</span><strong>${esc(x.early1||'—')}</strong></div>
-        <div class="shift"><span>早班2</span><strong>${esc(x.early2||'—')}</strong></div>
+        <div class="shift"><span>白班1</span><strong>${esc(x.early1||'—')}</strong></div>
+        <div class="shift"><span>白班2</span><strong>${esc(x.early2||'—')}</strong></div>
         <div class="shift"><span>晚班1</span><strong>${esc(x.night1||'—')}</strong></div>
-        ${x.mobile1?`<div class="shift"><span>機動</span><strong>${esc(x.mobile1)}</strong></div>`:''}
+        ${x.mobile1?`<div class="shift"><span>機動${esc(x.mobileShift||'')}</span><strong>${esc(x.mobile1)}</strong></div>`:''}
       </div>
     `).join('');
 

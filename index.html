@@ -17,7 +17,7 @@
     <div class="logo">4D</div>
     <div>
       <h1>高雄軟體園區<br>保全勤務排班</h1>
-      <p>每4天排班一次＋零散排班</p>
+      <p>選人員＋白／晚班，一次套用4天＋零星調整</p>
     </div>
   </header>
 
@@ -63,53 +63,71 @@
     <div class="section-head">
       <div>
         <div class="eyebrow">主要排班方式</div>
-        <h2>② 4日批次排班</h2>
+        <h2>② 人員班別套用4天</h2>
       </div>
       <button id="reloadStaffBtn" class="text-btn">重讀人員</button>
     </div>
 
-    <label for="startDate">起始日期</label>
+    <label for="startDate">4天起始日期</label>
     <input id="startDate" type="date">
 
-    <button id="load4Btn" class="btn outline">載入這4天</button>
+    <div id="rangeText" class="range-text">請選擇起始日期</div>
 
-    <div class="notice">
-      每次只處理「起始日＋後3天」。不會改動其他日期。
+    <div class="assign-builder">
+      <label for="batchPerson">先選人員</label>
+      <select id="batchPerson"></select>
+
+      <div class="shift-choice">
+        <button id="chooseDayBtn" class="shift-btn day" type="button">白班</button>
+        <button id="chooseNightBtn" class="shift-btn night" type="button">晚班</button>
+      </div>
+
+      <div class="hint">
+        每加入1人，就會套用到這4天。基本建議為「2位白班＋1位晚班」；第4位機動人員可選白班或晚班。
+      </div>
     </div>
 
-    <div id="fourDayList" class="day-list"></div>
+    <div id="batchAssignments" class="assignment-list"></div>
 
-    <button id="save4Btn" class="btn primary hidden">儲存這4天排班</button>
+    <button id="save4Btn" class="btn primary">套用此班表到4天</button>
     <div id="fourDayMessage"></div>
   </section>
 
-  <section class="card">
+<section class="card">
     <div class="section-head">
       <div>
         <div class="eyebrow">臨時請假／換班／支援</div>
-        <h2>③ 零散排班</h2>
+        <h2>③ 零星調整</h2>
       </div>
     </div>
 
     <label for="singleDate">日期</label>
     <input id="singleDate" type="date">
 
-    <label for="singleSlot">席次</label>
+    <label for="singleSlot">調整位置</label>
     <select id="singleSlot">
-      <option value="early1">早班1｜06:00–18:00</option>
-      <option value="early2">早班2｜06:00–18:00</option>
-      <option value="night1">晚班1｜18:00–次日06:00</option>
-      <option value="mobile1">機動班1</option>
+      <option value="early1">白班1</option>
+      <option value="early2">白班2</option>
+      <option value="night1">晚班1</option>
+      <option value="mobile1">機動支援</option>
     </select>
 
     <label for="singlePerson">人員</label>
     <select id="singlePerson"></select>
 
-    <button id="saveSingleBtn" class="btn single-btn">套用零散排班</button>
+    <div id="singleMobileShiftWrap" class="hidden">
+      <label for="singleMobileShift">機動班別</label>
+      <select id="singleMobileShift">
+        <option value="白班">白班｜06:00–18:00</option>
+        <option value="晚班">晚班｜18:00–次日06:00</option>
+      </select>
+    </div>
+
+    <button id="saveSingleBtn" class="btn single-btn">套用零星調整</button>
     <div id="singleMessage"></div>
   </section>
 
-  <section class="card">
+<section class="card">
     <div class="section-head">
       <h2>④ 本月排班檢視</h2>
       <button id="loadMonthBtn" class="text-btn">重新整理</button>
@@ -117,7 +135,7 @@
     <div id="monthRoster" class="month-list"></div>
   </section>
 
-  <footer>高雄軟體園區保全勤務｜4日批次排班 PWA</footer>
+  <footer>高雄軟體園區保全勤務｜4天班快速排班 PWA</footer>
 </main>
 
 <script src="./config.js"></script>

@@ -32,3 +32,90 @@ input,select{width:100%;padding:13px;border-radius:14px;border:1px solid #315a7f
 .hidden{display:none!important}
 footer{text-align:center;color:#718aa0;font-size:12px;padding:12px}
 @media(max-width:430px){.two,.day-grid{grid-template-columns:1fr}}
+
+
+/* ===== v4 人員＋班別套4天 ===== */
+.range-text{
+  margin-top:8px;
+  padding:10px 12px;
+  border-radius:12px;
+  background:#071826;
+  color:#bae6fd;
+  font-weight:800;
+  text-align:center;
+}
+.assign-builder{
+  margin-top:12px;
+  padding:14px;
+  border-radius:17px;
+  border:1px solid #315a7f;
+  background:#091a2a;
+}
+.shift-choice{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+  margin-top:10px;
+}
+.shift-btn{
+  padding:14px;
+  border-radius:14px;
+  border:1px solid;
+  color:#fff;
+  font-size:16px;
+  font-weight:900;
+}
+.shift-btn.day{
+  background:#0c4a6e;
+  border-color:#38bdf8;
+}
+.shift-btn.night{
+  background:#312e81;
+  border-color:#818cf8;
+}
+.hint{
+  margin-top:10px;
+  color:#9fb6ca;
+  font-size:12px;
+  line-height:1.55;
+}
+.assignment-list{
+  display:grid;
+  gap:9px;
+  margin-top:12px;
+}
+.assignment-item{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:10px;
+  padding:11px 12px;
+  border-radius:14px;
+  border:1px solid #315a7f;
+  background:#081827;
+}
+.assignment-main{
+  display:flex;
+  align-items:center;
+  gap:9px;
+}
+.shift-pill{
+  padding:5px 9px;
+  border-radius:999px;
+  font-size:12px;
+  font-weight:900;
+}
+.shift-pill.day{
+  background:#0c4a6e;
+  color:#bae6fd;
+}
+.shift-pill.night{
+  background:#312e81;
+  color:#c7d2fe;
+}
+.remove-assignment{
+  border:0;
+  background:none;
+  color:#fca5a5;
+  font-weight:900;
+}
